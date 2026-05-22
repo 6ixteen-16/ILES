@@ -5,29 +5,30 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework.exceptions import AuthenticationFailed
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth import get_user_model
 
-from .serializers import UserSerializer, RegisterSerializer, ChangePasswordSerializer, UserMinimalSerializer, AdminUserCreateSerializer
+from .serializers import (
+    UserSerializer, RegisterSerializer, ChangePasswordSerializer,
+    UserMinimalSerializer, AdminUserCreateSerializer
+)
 
 User = get_user_model()
 
 
-from rest_framework.exceptions import AuthenticationFailed
-
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
-        
-        # Explicit safeguard to guarantee inactive accounts cannot get tokens
+
+        # Explicit safeguard: inactive accounts cannot get tokens
         if not self.user.is_active:
             raise AuthenticationFailed(
                 "No active account found with the given credentials",
                 "no_active_account",
             )
-            
-        user_data = UserSerializer(self.user).data
-        data['user'] = user_data
+
+        data['user'] = UserSerializer(self.user).data
         return data
 
 
@@ -58,10 +59,14 @@ class AdminCreateUserView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
-        if not getattr(request.user, 'is_staff', False) and getattr(request.user, 'role', '') != 'admin':
-            return Response({"detail": "Only administrators can perform this action."}, status=status.HTTP_403_FORBIDDEN)
+        # FIX: use is_staff OR role == 'admin' — both conditions individually
+        # grant access, not just the combination.
+        if not (request.user.is_staff or getattr(request.user, 'role', '') == 'admin'):
+            return Response(
+                {"detail": "Only administrators can perform this action."},
+                status=status.HTTP_403_FORBIDDEN
+            )
         return super().create(request, *args, **kwargs)
-
 
 
 @api_view(['POST'])
@@ -102,6 +107,10 @@ def change_password_view(request):
 
 
 class UserListView(generics.ListAPIView):
+    # BUG 1 FIX: was missing permission_classes entirely.
+    # Without this, AnonymousUser reaches get_queryset() and crashes on
+    # user.is_admin_user (AttributeError) → 500, which breaks the admin UI.
+    permission_classes = [IsAuthenticated]
     serializer_class = UserSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['role', 'is_active']
@@ -109,17 +118,19 @@ class UserListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_admin_user or user.is_staff:
+        if user.is_staff or getattr(user, 'is_admin_user', False):
             return User.objects.all()
         return User.objects.filter(is_active=True)
 
 
 class UserDetailView(generics.RetrieveUpdateAPIView):
+    # BUG 2 FIX: same issue as UserListView — was missing permission_classes.
+    permission_classes = [IsAuthenticated]
     serializer_class = UserSerializer
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_admin_user or user.is_staff:
+        if user.is_staff or getattr(user, 'is_admin_user', False):
             return User.objects.all()
         return User.objects.filter(id=user.id)
 
