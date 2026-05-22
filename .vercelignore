@@ -1,0 +1,11 @@
+requirements.txt
+manage.py
+render.yaml
+*.py
+iles_backend/
+users/
+logbook/
+placements/
+evaluations/
+dashboard/
+backend/
