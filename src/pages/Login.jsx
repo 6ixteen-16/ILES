@@ -20,8 +20,17 @@ export default function Login() {
       await login(form.username, form.password)
       navigate('/dashboard')
     } catch (err) {
-      const msg = err.response?.data?.detail || 'Invalid credentials. Please try again.'
-      setError(msg)
+      const detail = err.response?.data?.detail || ''
+      // SimpleJWT returns "No active account found with the given credentials"
+      // when is_active=False — i.e. a supervisor awaiting admin approval.
+      if (detail.toLowerCase().includes('no active account')) {
+        setError(
+          'Your account is not yet active. If you registered as a Workplace Supervisor, ' +
+          'your account is pending admin approval. Please try again after an administrator has activated it.'
+        )
+      } else {
+        setError(detail || 'Invalid credentials. Please try again.')
+      }
     } finally {
       setLoading(false)
     }
@@ -33,7 +42,7 @@ export default function Login() {
         <div className="auth-logo">
           <h1>ILES</h1>
           <p>Internship Logging &amp; Evaluation System</p>
-          <p className="text-secondary text-sm" style={{marginTop:4}}>Makerere University</p>
+          <p className="text-secondary text-sm" style={{ marginTop: 4 }}>Makerere University</p>
         </div>
 
         {error && <Alert type="error">{error}</Alert>}

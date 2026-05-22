@@ -8,14 +8,24 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth import get_user_model
 
-from .serializers import UserSerializer, RegisterSerializer, ChangePasswordSerializer, UserMinimalSerializer
+from .serializers import UserSerializer, RegisterSerializer, ChangePasswordSerializer, UserMinimalSerializer, AdminUserCreateSerializer
 
 User = get_user_model()
 
 
+from rest_framework.exceptions import AuthenticationFailed
+
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
+        
+        # Explicit safeguard to guarantee inactive accounts cannot get tokens
+        if not self.user.is_active:
+            raise AuthenticationFailed(
+                "No active account found with the given credentials",
+                "no_active_account",
+            )
+            
         user_data = UserSerializer(self.user).data
         data['user'] = user_data
         return data
@@ -40,6 +50,18 @@ class RegisterView(generics.CreateAPIView):
             'refresh': str(refresh),
             'access': str(refresh.access_token),
         }, status=status.HTTP_201_CREATED)
+
+
+class AdminCreateUserView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    serializer_class = AdminUserCreateSerializer
+    permission_classes = [IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+        if not getattr(request.user, 'is_staff', False) and getattr(request.user, 'role', '') != 'admin':
+            return Response({"detail": "Only administrators can perform this action."}, status=status.HTTP_403_FORBIDDEN)
+        return super().create(request, *args, **kwargs)
+
 
 
 @api_view(['POST'])

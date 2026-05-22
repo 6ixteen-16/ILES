@@ -56,6 +56,22 @@ function ProtectedRoute({ children }) {
   return children
 }
 
+/** Requires the logged-in user to have one of the allowed roles.
+ *  Unauthorised users are redirected to /dashboard silently. */
+function RoleRoute({ roles, children }) {
+  const { user, loading } = useAuth()
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+        <div className="spinner" />
+      </div>
+    )
+  }
+  if (!user) return <Navigate to="/login" replace />
+  if (!roles.includes(user.role)) return <Navigate to="/dashboard" replace />
+  return children
+}
+
 function AppLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   return (
@@ -83,8 +99,14 @@ function AppRoutes() {
       <Route path="/placements" element={<ProtectedRoute><AppLayout><Placements /></AppLayout></ProtectedRoute>} />
       <Route path="/logbook" element={<ProtectedRoute><AppLayout><Logbook /></AppLayout></ProtectedRoute>} />
       <Route path="/evaluations" element={<ProtectedRoute><AppLayout><Evaluations /></AppLayout></ProtectedRoute>} />
-      <Route path="/users" element={<ProtectedRoute><AppLayout><Users /></AppLayout></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><AppLayout><Profile /></AppLayout></ProtectedRoute>} />
+
+      {/* Admin-only route — non-admins are redirected to /dashboard */}
+      <Route path="/users" element={
+        <RoleRoute roles={['admin']}>
+          <AppLayout><Users /></AppLayout>
+        </RoleRoute>
+      } />
 
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

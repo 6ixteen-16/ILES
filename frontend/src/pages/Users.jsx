@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import api from '../api/axios'
 import { useAuth } from '../context/AuthContext'
 import { Spinner, Badge, Alert, EmptyState } from '../components/UI'
+import CreateUserModal from '../components/CreateUserModal'
 
 const ROLE_LABELS = {
   student: 'Student Intern',
@@ -9,6 +10,10 @@ const ROLE_LABELS = {
   academic_supervisor: 'Academic Supervisor',
   admin: 'Administrator',
 }
+
+/** An inactive workplace_supervisor who has never been activated = pending approval. */
+const isPendingApproval = (u) => !u.is_active && u.role === 'workplace_supervisor'
+
 
 export default function Users() {
   const { user } = useAuth()
@@ -19,9 +24,18 @@ export default function Users() {
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [toggling, setToggling] = useState(null)
+  const [showCreateModal, setShowCreateModal] = useState(false)
 
+  // Route-level RoleRoute in App.jsx handles the primary redirect.
+  // This is a secondary safety net for edge-cases (e.g. role changed mid-session).
   if (user?.role !== 'admin' && !user?.is_staff) {
-    return <div className="page-body"><Alert type="error">Access denied. Administrators only.</Alert></div>
+    return (
+      <div className="page-body">
+        <div className="alert alert-error">
+          Access denied — administrators only.
+        </div>
+      </div>
+    )
   }
 
   const load = async () => {
@@ -59,9 +73,36 @@ export default function Users() {
           <h1>Manage Users</h1>
           <p className="text-secondary">{users.length} user{users.length !== 1 ? 's' : ''} found</p>
         </div>
+        <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+          + Add New User
+        </button>
       </div>
 
+      {/* Pending approval banner */}
+      {(() => {
+        const pending = users.filter(isPendingApproval)
+        if (!pending.length) return null
+        return (
+          <div className="alert alert-warning" style={{ marginBottom: 20, alignItems: 'center' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <span>
+              <strong>{pending.length} Workplace Supervisor{pending.length > 1 ? 's' : ''}</strong> {pending.length > 1 ? 'are' : 'is'} awaiting admin approval.
+              Review and approve them below.
+            </span>
+          </div>
+        )
+      })()}
+
       {error && <Alert type="error">{error}</Alert>}
+
+      {showCreateModal && (
+        <CreateUserModal
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={() => { setShowCreateModal(false); load(); }}
+        />
+      )}
 
       <div className="filters-bar">
         <select value={filterRole} onChange={e => setFilterRole(e.target.value)} style={{ maxWidth: 200 }}>
@@ -121,16 +162,31 @@ export default function Users() {
                     {new Date(u.date_joined).toLocaleDateString()}
                   </td>
                   <td>
-                    <Badge status={u.is_active ? 'active' : 'cancelled'} />
+                    {isPendingApproval(u) ? (
+                      <span className="badge badge-pending">Pending Approval</span>
+                    ) : (
+                      <Badge status={u.is_active ? 'active' : 'cancelled'} />
+                    )}
                   </td>
                   <td>
-                    <button
-                      className={`btn btn-sm ${u.is_active ? 'btn-danger' : 'btn-success'}`}
-                      disabled={toggling === u.id || u.id === user.id}
-                      onClick={() => toggleActive(u)}
-                    >
-                      {toggling === u.id ? '…' : u.is_active ? 'Deactivate' : 'Activate'}
-                    </button>
+                    {isPendingApproval(u) ? (
+                      <button
+                        className="btn btn-success btn-sm"
+                        disabled={toggling === u.id}
+                        onClick={() => toggleActive(u)}
+                        title="Approve this supervisor's account"
+                      >
+                        {toggling === u.id ? '…' : '✓ Approve'}
+                      </button>
+                    ) : (
+                      <button
+                        className={`btn btn-sm ${u.is_active ? 'btn-danger' : 'btn-success'}`}
+                        disabled={toggling === u.id || u.id === user.id}
+                        onClick={() => toggleActive(u)}
+                      >
+                        {toggling === u.id ? '…' : u.is_active ? 'Deactivate' : 'Activate'}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
