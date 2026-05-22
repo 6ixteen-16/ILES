@@ -18,13 +18,19 @@ export default function CreateUserModal({ onClose, onSuccess }) {
     setLoading(true)
     setErrors({})
     try {
-      await api.post('/auth/users/create/', form)
+      const payload = { ...form }
+      // Remove empty strings so the backend can use defaults or ignore them
+      Object.keys(payload).forEach(key => {
+        if (payload[key] === '') delete payload[key]
+      })
+
+      await api.post('/auth/users/create/', payload)
       onSuccess()
     } catch (err) {
       if (err.response?.data && typeof err.response.data === 'object') {
         setErrors(err.response.data)
       } else {
-        setErrors({ non_field_errors: ['Failed to create user.'] })
+        setErrors({ non_field_errors: ['Failed to create user. Please check your connection or backend server.'] })
       }
     } finally {
       setLoading(false)
@@ -42,6 +48,8 @@ export default function CreateUserModal({ onClose, onSuccess }) {
         </div>
 
         {err('non_field_errors') && <Alert type="error">{err('non_field_errors')}</Alert>}
+        {err('detail') && <Alert type="error">{err('detail')}</Alert>}
+        {err('error') && <Alert type="error">{err('error')}</Alert>}
 
         <form onSubmit={submit}>
           <div className="form-row">
