@@ -1,16 +1,29 @@
+import os
 from pathlib import Path
 from datetime import timedelta
-from decouple import config
-import dj_database_url
+import environ
 
+# 1. Base Directory Setup
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = config('SECRET_KEY', default='django-insecure-iles-dev-change-in-prod-2024')
-DEBUG = config('DEBUG', default=True, cast=bool)
+# 2. Initialize environment variables with defaults
+env = environ.Env(
+    DEBUG=(bool, False),
+    CORS_ALLOW_ALL=(bool, False)
+)
 
-ALLOWED_HOSTS_STR = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,0.0.0.0,testserver')
+# Read the local .env file if it exists
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
+
+# 3. Core Settings from Environment
+SECRET_KEY = env('SECRET_KEY', default='django-insecure-iles-dev-change-in-prod-2024')
+DEBUG = env.bool('DEBUG', default=False)
+
+# Parse allowed hosts string cleanly into a list
+ALLOWED_HOSTS_STR = env('ALLOWED_HOSTS', default='localhost,127.0.0.1,0.0.0.0,testserver')
 ALLOWED_HOSTS = [h.strip() for h in ALLOWED_HOSTS_STR.split(',')]
 
+# 4. Application Definition
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -64,10 +77,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'iles_backend.wsgi.application'
 
-# Database — SQLite for local dev, PostgreSQL on Render via DATABASE_URL
-DATABASE_URL = config('DATABASE_URL', default=f'sqlite:///{BASE_DIR}/db.sqlite3')
+# 5. Database Setup (Handles Postgres on Render natively, falls back to local SQLite)
 DATABASES = {
-    'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
+    'default': env.db('DATABASE_URL', default=f'sqlite:///{BASE_DIR}/db.sqlite3')
 }
 
 AUTH_USER_MODEL = 'users.CustomUser'
@@ -79,7 +91,7 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-# REST Framework
+# 6. REST Framework Configuration
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -96,7 +108,7 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 20,
 }
 
-# JWT Config
+# 7. JWT Configuration
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=24),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
@@ -105,29 +117,29 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-# CORS
-CORS_ALLOWED_ORIGINS_STR = config(
+# 8. CORS Settings
+CORS_ALLOWED_ORIGINS_STR = env(
     'CORS_ALLOWED_ORIGINS',
     default='http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173'
 )
 CORS_ALLOWED_ORIGINS = [o.strip() for o in CORS_ALLOWED_ORIGINS_STR.split(',')]
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL', default=False, cast=bool)
+CORS_ALLOW_ALL_ORIGINS = env.bool('CORS_ALLOW_ALL', default=False)
 
-# Internationalization
+# 9. Internationalization
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Africa/Kampala'
 USE_I18N = True
 USE_TZ = True
 
-# Static files
+# 10. Static files & Production Storage
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Security (enabled in production)
+# 11. HTTPS Production Security Settings
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True
