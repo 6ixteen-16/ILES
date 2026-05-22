@@ -1,5 +1,6 @@
 services:
   - type: web
+<<<<<<< HEAD
     name: iles-frontend
     runtime: static
     buildCommand: npm install && npm run build
@@ -11,3 +12,24 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
+=======
+    name: iles-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate
+    startCommand: gunicorn iles_backend.wsgi:application --bind 0.0.0.0:$PORT
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: False
+      - key: ALLOWED_HOSTS
+        value: .onrender.com,localhost
+      - key: CORS_ALLOW_ALL
+        value: False
+      - key: DJANGO_SETTINGS_MODULE
+        value: iles_backend.settings
+    databases:
+      - name: iles-db
+        databaseName: iles
+        user: iles
+>>>>>>> 45ff5a882889969579b28abde72178ead9d7a885
