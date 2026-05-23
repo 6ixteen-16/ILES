@@ -57,7 +57,6 @@ class AdminCreateUserView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
-        # FIX: Wrap the conditions in parentheses so if a user has either clearance, they pass!
         is_staff = getattr(request.user, 'is_staff', False)
         is_admin_role = getattr(request.user, 'role', '') == 'admin'
         
@@ -74,6 +73,7 @@ class AdminCreateUserView(generics.CreateAPIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class UserListView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
     serializer_class = UserSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['role', 'is_active']
@@ -87,6 +87,7 @@ class UserListView(generics.ListAPIView):
 
 
 class UserDetailView(generics.RetrieveUpdateAPIView):
+    permission_classes = [IsAuthenticated]
     serializer_class = UserSerializer
 
     def get_queryset(self):
