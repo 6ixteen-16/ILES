@@ -21,6 +21,8 @@ export default function Login() {
       navigate('/dashboard')
     } catch (err) {
       const detail = err.response?.data?.detail || ''
+      // SimpleJWT returns "No active account found with the given credentials"
+      // when is_active=False — i.e. a supervisor awaiting admin approval.
       if (detail.toLowerCase().includes('no active account')) {
         setError(
           'Your account is not yet active. If you registered as a Workplace Supervisor, ' +
@@ -59,6 +61,7 @@ export default function Login() {
               autoFocus
             />
           </div>
+
           <div className="form-group">
             <label htmlFor="password">Password</label>
             <input
@@ -71,6 +74,7 @@ export default function Login() {
               required
             />
           </div>
+
           <button
             type="submit"
             className="btn btn-primary btn-block btn-lg"
@@ -81,11 +85,7 @@ export default function Login() {
           </button>
         </form>
 
-        <p className="text-secondary text-sm" style={{ textAlign: 'center', marginTop: 12 }}>
-          <Link to="/forgot-password" className="auth-link">Forgot password?</Link>
-        </p>
-
-        <p className="text-secondary text-sm" style={{ textAlign: 'center', marginTop: 8 }}>
+        <p className="text-secondary text-sm" style={{ textAlign: 'center', marginTop: 20 }}>
           No account?{' '}
           <Link to="/register" className="auth-link">Register here</Link>
         </p>
