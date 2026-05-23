@@ -76,6 +76,13 @@ class ChangePasswordSerializer(serializers.Serializer):
 
 class AdminUserCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False)
+    
+    # Explicitly mark profile fields as optional in the serializer 
+    # so empty forms from the frontend don't cause 400 validation crashes
+    student_id = serializers.CharField(required=False, allow_blank=True)
+    organization = serializers.CharField(required=False, allow_blank=True)
+    department = serializers.CharField(required=False, allow_blank=True)
+    phone = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = CustomUser
@@ -87,6 +94,7 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         password = validated_data.pop('password', None)
+        role = validated_data.get('role', 'student')
         user = CustomUser(**validated_data)
         
         if password:
@@ -95,6 +103,13 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
             user.set_password('iles12345') # Default password if not provided
             
         user.is_active = True # Admin-created users are active
+        
+        # FIX: If the admin creates another admin via the frontend dashboard,
+        # make sure Django's security systems actually recognize their staff clearance!
+        if role == 'admin':
+            user.is_staff = True
+            user.is_superuser = True
+
         user.save()
         return user
 
