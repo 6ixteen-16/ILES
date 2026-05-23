@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.hashers import make_password
 from .models import CustomUser
 
 
@@ -53,11 +54,11 @@ class RegisterSerializer(serializers.ModelSerializer):
         validated_data.pop('password2')
         password = validated_data.pop('password')
         user = CustomUser(**validated_data)
-        
-        # Workplace supervisors require admin approval
+
+        # Workplace supervisors require admin approval before activation
         if user.role == 'workplace_supervisor':
             user.is_active = False
-            
+
         user.set_password(password)
         user.save()
         return user
@@ -75,26 +76,39 @@ class ChangePasswordSerializer(serializers.Serializer):
 
 
 class AdminUserCreateSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, required=False)
+    # BUG 3 FIX: added validate_password validator (was missing, unlike RegisterSerializer).
+    # BUG 4 FIX: password is now required=True so admins must always set an explicit
+    #            password. The old hardcoded 'iles12345' default was a security risk —
+    #            every admin-created account without a password shared the same
+    #            known credential.
+    password = serializers.CharField(
+        write_only=True,
+        required=True,
+        validators=[validate_password],
+    )
 
     class Meta:
         model = CustomUser
         fields = [
             'username', 'email', 'first_name', 'last_name',
             'role', 'phone', 'student_id', 'organization', 'department',
-            'password'
+            'is_active', 'password',
         ]
+        # BUG 5 FIX (partial): expose is_active so admin can create inactive accounts
+        # if needed (e.g. prepare an account before the user's start date).
+        extra_kwargs = {
+            'is_active': {'default': True},
+        }
 
     def create(self, validated_data):
-        password = validated_data.pop('password', None)
-        user = CustomUser(**validated_data)
-        
-        if password:
-            user.set_password(password)
-        else:
-            user.set_password('iles12345') # Default password if not provided
-            
-        user.is_active = True # Admin-created users are active
-        user.save()
-        return user
+        password = validated_data.pop('password')
 
+        # BUG 5 FIX: use create_user() manager instead of CustomUser(**validated_data).
+        # AbstractUser.objects.create_user() properly calls normalize_username() and
+        # normalize_email(), preventing duplicate accounts due to casing differences
+        # (e.g. "Alice" vs "alice"). Direct CustomUser(**data).save() bypasses this.
+        user = CustomUser.objects.create_user(
+            password=password,
+            **validated_data,
+        )
+        return user
