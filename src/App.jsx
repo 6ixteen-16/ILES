@@ -1,3 +1,4 @@
+
 import { useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
@@ -10,6 +11,8 @@ import Logbook from './pages/Logbook'
 import Evaluations from './pages/Evaluations'
 import Users from './pages/Users'
 import Profile from './pages/Profile'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import './index.css'
 
 const PAGE_TITLES = {
@@ -94,13 +97,13 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
       <Route path="/register" element={user ? <Navigate to="/dashboard" replace /> : <Register />} />
-
       <Route path="/dashboard" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
       <Route path="/placements" element={<ProtectedRoute><AppLayout><Placements /></AppLayout></ProtectedRoute>} />
       <Route path="/logbook" element={<ProtectedRoute><AppLayout><Logbook /></AppLayout></ProtectedRoute>} />
       <Route path="/evaluations" element={<ProtectedRoute><AppLayout><Evaluations /></AppLayout></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><AppLayout><Profile /></AppLayout></ProtectedRoute>} />
-
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password/:uid/:token" element={<ResetPassword />} />
       {/* Admin-only route — non-admins are redirected to /dashboard */}
       <Route path="/users" element={
         <RoleRoute roles={['admin']}>
@@ -109,7 +112,7 @@ function AppRoutes() {
       } />
 
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   )
 }
