@@ -53,53 +53,25 @@ class RegisterView(generics.CreateAPIView):
 
 
 class AdminCreateUserView(generics.CreateAPIView):
-    queryset = User.objects.all()
     serializer_class = AdminUserCreateSerializer
     permission_classes = [IsAuthenticated]
 
-    def create(self, request, *args, **kwargs):
-        if not getattr(request.user, 'is_staff', False) and getattr(request.user, 'role', '') != 'admin':
-            return Response({"detail": "Only administrators can perform this action."}, status=status.HTTP_403_FORBIDDEN)
-        return super().create(request, *args, **kwargs)
+    def post(self, request, *args, **kwargs):
+        # FIX: Wrap the conditions in parentheses so if a user has either clearance, they pass!
+        is_staff = getattr(request.user, 'is_staff', False)
+        is_admin_role = getattr(request.user, 'role', '') == 'admin'
+        
+        if not (is_staff or is_admin_role):
+            return Response(
+                {"detail": "Only administrators can perform this action."}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
 
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def logout_view(request):
-    try:
-        refresh_token = request.data.get('refresh')
-        if refresh_token:
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-    except Exception:
-        pass
-    return Response({'detail': 'Logged out successfully.'}, status=status.HTTP_200_OK)
-
-
-@api_view(['GET', 'PUT', 'PATCH'])
-@permission_classes([IsAuthenticated])
-def profile_view(request):
-    user = request.user
-    if request.method == 'GET':
-        return Response(UserSerializer(user).data)
-    serializer = UserSerializer(user, data=request.data, partial=True)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def change_password_view(request):
-    serializer = ChangePasswordSerializer(data=request.data, context={'request': request})
-    if serializer.is_valid():
-        request.user.set_password(serializer.validated_data['new_password'])
-        request.user.save()
-        return Response({'detail': 'Password changed successfully.'})
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class UserListView(generics.ListAPIView):
     serializer_class = UserSerializer
